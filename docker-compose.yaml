@@ -1,0 +1,40 @@
+version: "3"
+services:
+    nginx:
+        build:
+            context: ./docker/nginx
+        volumes:
+            - "./:/var/www"
+        depends_on:
+            - php-fpm
+        ports:
+            - 8080:80
+        networks:
+            - app-network
+
+    php-fpm:
+        build: ./docker/php-fpm
+        volumes:
+            - ./:/var/www
+        networks:
+            - app-network
+
+    mysql:
+        image: mysql:5.7
+        restart: always
+        environment:
+            MYSQL_ROOT_PASSWORD: 123321!
+            MYSQL_PASSWORD: 123321!
+            MYSQL_DATABASE: test
+            MYSQL_USER: aleksandr
+        ports:
+            - 3306:3306
+        volumes:
+            - ./docker/mysql/data:/var/lib/mysql
+            - ./docker/mysql/dump:/docker-entrypoint-initdb.d
+        networks:
+            - app-network
+
+networks:
+    app-network:
+        driver: bridge

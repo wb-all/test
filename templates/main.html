@@ -1,0 +1,217 @@
+<html lang="ru">
+    <head>
+        <title>Тестовое приложение</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+        <link rel="stylesheet" href="./css/style.css">
+        <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+
+        <!-- Comment Template -->
+        <script type="text/x-template" id="comment-template">
+            <li class="comment-item">
+                <div class="comment-datetime">
+                    #{{ comment.id }} - {{ comment.created_at }}
+                </div>
+                <div class="comment-body">
+                    {{  comment.body }}
+                </div>
+
+                <comment-form
+                        :topic-id="comment.topic_id"
+                        :parent-id="comment.id"
+                        @refresh="fetchComments"
+                />
+
+                <ul v-if="comment.children.length > 0">
+                    <Comment
+                            v-for="comment in comment.children"
+                            :comment="comment"
+                            :key="comment.id"
+                            @refresh="fetchComments"
+                    />
+                </ul>
+            </li>
+        </script>
+
+        <!-- Comment Form Template -->
+        <script type="text/x-template" id="modal-comment-form">
+            <div>
+                <div class="text-center mt-4 mb-4" v-if="parentId === null && isOpen === false">
+                    <button class="btn btn-primary" @click="toggleForm">
+                        Добавить новый комментарий
+                    </button>
+                </div>
+
+                <div class="comment-action" v-if="parentId && isOpen === false">
+                    <button class="btn btn-default btn-sm" @click="toggleForm">Ответить</button>
+                </div>
+
+                <div class="comment-form mt-5" v-if="isOpen">
+                    <div class="form-group">
+                        <label>Введите комментарий</label>
+                        <textarea v-model="comment" class="form-control"></textarea>
+                        <small class="form-text text-muted" v-if="commentError">
+                            {{ commentError }}
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-primary" @click="sendComment">Добавить комменарий</button>
+                        <button class="btn btn-warning" @click="toggleForm">Отменить</button>
+                    </div>
+                </div>
+            </div>
+        </script>
+    </head>
+    <body>
+        <div id="app">
+            <div class="container">
+                <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-5">
+                    <a class="navbar-brand" href="#">Тестовое приложение</a>
+                </nav>
+
+                <h3 class="text-center mb-5 text-center mt-3 mb-3">Комментарии по топику #{{ topicId }}</h3>
+
+                <div class="topic-list mt-2 mb-5 text-center">
+                    <a
+                            v-for="value in [1, 2, 3, 4, 5]"
+                            :key="value"
+                            class="btn btn-info btn-sm m-1"
+                            :href="'/?topic_id=' + value"
+                    >
+                        Топик № {{ value }}
+                    </a>
+                </div>
+
+                <div class="comment-list">
+                    <ul>
+                        <Comment
+                                v-for="comment in comments"
+                                :comment="comment"
+                                :key="comment.id"
+                                @refresh="fetchComments"
+                        />
+                    </ul>
+
+                    <p v-if="comments.length === 0" class="alert alert-info text-center">
+                        <strong>Нет комментариев.</strong>
+                    </p>
+                </div>
+
+                <comment-form
+                        :topic-id="topicId"
+                        :parent-id="null"
+                        @refresh="fetchComments"
+                />
+            </div>
+        </div>
+
+        <script>
+            Vue.component('commentForm', {
+                name: 'commentForm',
+                template: '#modal-comment-form',
+                props: {
+                    topicId: Number,
+                    parentId: Number,
+                },
+                data () {
+                    return {
+                        isOpen: false,
+                        comment: '',
+                        commentError: '',
+                    };
+                },
+                methods: {
+                    toggleForm: function () {
+                        this.isOpen = ! this.isOpen;
+                    },
+                    sendComment: function () {
+                        fetch('/api/topics/'+this.topicId+'/comments', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            redirect: 'follow',
+                            referrerPolicy: 'no-referrer',
+                            body: JSON.stringify({
+                                body: this.comment,
+                                parent_id: this.parentId
+                            })
+                        }).then((response) =>
+                            response.text().then((text) => ({
+                                status: response.status,
+                                statusText: response.statusText,
+                                headers: response.headers,
+                                body: text,
+                            })),
+                        ).then(response => {
+                            this.comment = '';
+                            this.commentError = null;
+
+                            const json = JSON.parse(response.body);
+
+                            if (response.status === 422) {
+                                this.commentError = json.errors[0]['message'];
+                            }
+
+                            if (response.status === 200) {
+                                this.toggleForm();
+                                this.$emit('refresh');
+                            }
+                        }).catch(error => {
+                            console.log(error);
+                        })
+                    }
+                }
+            })
+
+            Vue.component("comment", {
+                name: 'Comment',
+                template: "#comment-template",
+                props: {
+                    comment: Object
+                },
+                data () {
+                    return {
+                        isOpen: false
+                    };
+                },
+                methods: {
+                    fetchComments: function () {
+                        this.$emit('refresh');
+                    }
+                }
+            });
+
+            const app = new Vue({
+                el: '#app',
+                data() {
+                    return {
+                        topicId: 1,
+                        comment: {
+                            body: 'test 1231232'
+                        },
+                        comments: []
+                    };
+                },
+                created () {
+                    let uri = window.location.search.substring(1);
+                    let params = new URLSearchParams(uri);
+
+                    this.topicId = parseInt(params.get('topic_id')) ?? 1;
+
+                    this.fetchComments();
+                },
+                methods: {
+                    fetchComments: function () {
+                        fetch('/api/topics/'+this.topicId+'/comments')
+                            .then((response) => {
+                                return response.json();
+                            })
+                            .then((data) => {
+                                this.comments = data.result;
+                            });
+                    }
+                }
+            })
+        </script>
+    </body>
+</html>

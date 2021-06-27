@@ -1,0 +1,34 @@
+body {
+    background: #e6e6e6;
+}
+
+ul {
+    list-style: none;
+    padding: 0px;
+    margin: 0px;
+}
+
+ul li {
+    margin-left: 15px;
+    padding: 15px;
+}
+
+.comment-list {
+    background: #FFF;
+    padding: 0px;
+}
+
+.comment-datetime, .comment-body, .comment-action {
+    padding: 7px;
+}
+.comment-action {
+    border-bottom: 1px solid #e6e6e6;
+}
+
+.comment-form {
+    border-top: 1px solid #e6e6e6;
+}
+
+.topic-list {
+    color: #FFF;
+}
